@@ -1,0 +1,54 @@
+---
+title: "Estadística Bayesiana"
+output: pdf_document
+---
+
+```{r, echo=FALSE, out.width="237px", fig.align='center'}
+knitr::include_graphics("logounr.jpg")
+```
+
+
+# [Trabajo Práctico:]{.underline} ""
+
+[Estudiantes:]{.underline} Marcos Leguizamón y Evelin Sánchez Meza
+
+[Profesores:]{.underline} Ignacio Evangelista y Tomás Capretto
+
+[Fecha:]{.underline}
+
+\pagebreak
+
+### Introducción.
+
+\pagebreak
+
+### Modelo Bayesiana
+
+
+$\pi_A$ : proporción de estudiantes de una escuela que participan de apuestas deportivas en línea
+
+$n$: cantidad de estudiantes en la encuesta
+
+$N$: Cantidad de estudiantes en la escuela encuestada
+
+
+El modelo propuesto es:
+
+\[
+Y_i \mid \pi_A \sim \text{Binomial}(\pi_A, n)
+\]
+
+\[
+\pi_A \sim \text{Beta}(2,2)
+\]
+
+
+Se decidió utilizar este prior por las siguientes razones. En primer lugar, el parametro $\pi_A$ es un parámetro que tiene un recorrido continuo dentro del rango 0 al 1. Por lo cual la función beta cumple con este requisito. En segundo lugar, se supone que los valores extremos que puede tomar el parámetro $\pi_A$ son muy poco probables.En resumen, se cree que no todos los alumnos de la escuela participaron en apuestas deportivas online y en contraposición tambien se supone que al menos una parte significativa de estudiantes han participado en apuestas online. Por estas razones se le da mayor peso a los posibles valores que puede tomar $\pi_A$ alrededor del 0.5.
+
+Por otro lado, se decidió usar una distribución binomial como función de verosimilitud ya que se cuenta con una situación en la que cada estudiante encuestado solo tiene dos opciones de respuesta; Si el estudiante ha participado en apuestas deportivas online(éxito) o no ha participado en apuestas deportivas(fracaso). Ádemas el tamaño de la muestra es fijo y esta dado por $n$, la cantidad de alumnos encuestados en la escuela. Y la probabilidad con la que los alumnos encuestados respondan afirmativamenta a la participación en apuestas deportivas online es $\pi_A$. 
+
+Con estos elementos se sabe que el posterior se obtiene al realizar la productoría entre el prior con la verosimilitud. Y dado los el prior y la verosimilitud propuesta se obtendrá un posterior beta. De la siguiente forma : 
+
+\[
+\pi_A \sim \text{Beta}(2 + y,2 + n-y)
+\]
