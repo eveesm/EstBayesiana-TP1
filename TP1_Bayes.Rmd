@@ -43,6 +43,7 @@ library(dplyr)
 library(stats)
 library(tidyr)
 library(patchwork)
+library(tibble)
 ```
 
 ```{r seed, echo=FALSE,message=FALSE,warning=FALSE}
@@ -136,23 +137,80 @@ Sustituyendo los parámetros del prior elegido ($\alpha=2$,$\beta=2$), se obtien
 \pi_A \mid y, n \sim {Beta}(2 + y, 2 + n - y)
 \]
 
+Una vez establecido el modelo bayesiano para la estimación de $\pi_a$, se procede a evaluar su comportamiento en la práctica mediante simulación. Utilizando el software R para generar conjuntos de datos que representen tanto el escenario ideal donde los estudiantes no mienten, como escenarios alternativos donde se introducen tres disintos  niveles de mentira: bajo($\mu=0.25$), medio($\mu=0.50$) y alto($\mu=0.75$). El análisis comparativo de los resultados inferenciales obtenidos en cada caso nos permitirá comprender el impacto de la sinceridad de las respuestas en la estimación del parámetro de interés para una muestra.
+
+```{r primer simulacion,warning=FALSE,message=FALSE, results='hide'}
+#Configuración inicial
+set.seed(123)
+n <- 100 
+pi_a <- 0.4
+alpha_prior <- 2
+beta_prior <- 2
+
+# Simulación de y
+y <- rbinom(1, n, pi_a)
+
+# Función para calcular posterior por nivel de mentira
+posterior <- function(y, n, mu = 0) {
+  y_observado <- y - rbinom(1, y, mu)
+  alpha_post <- alpha_prior + y_observado
+  beta_post <- beta_prior + n - y_observado
+  list(y = y, y_obs = y_observado, alpha = alpha_post, beta = beta_post)
+}
+
+# Simulaciones para los 4 casos
+sin_mentiras <- posterior(y, n, mu = 0)
+mentira_baja <- posterior(y, n, mu = 0.25)
+mentira_media <- posterior(y, n, mu = 0.5)
+mentira_alta <- posterior(y, n, mu = 0.75)
+```
+
+```{r mostrar valores observados, results='hide',echo=FALSE,warning=FALSE,message=FALSE}
+# Opcional: mostrar valores observados
+cat("y real:", y, "\n")
+cat("Sin mentiras:", sin_mentiras$y_obs, "\n")
+cat("Mentira baja:", mentira_baja$y_obs, "\n")
+cat("Mentira media:", mentira_media$y_obs, "\n")
+cat("Mentira alta:", mentira_alta$y_obs, "\n")
+```
+
+
+```{r grafico1, echo=FALSE,warning=FALSE,message=FALSE}
 
 
 
+# Crear data frame para graficar
+x_vals <- seq(0, 1, length.out = 1000)
 
-Se decidió utilizar este prior por las siguientes razones. En primer lugar, el parametro $\pi_A$ es un parámetro que tiene un recorrido continuo dentro del rango 0 al 1. Por lo cual la función beta cumple con este requisito. En segundo lugar, se supone que los valores extremos que puede tomar el parámetro $\pi_A$ son muy poco probables.En resumen, se cree que no todos los alumnos de la escuela participaron en apuestas deportivas online y en contraposición tambien se supone que al menos una parte significativa de estudiantes han participado en apuestas online. Por estas razones se le da mayor peso a los posibles valores que puede tomar $\pi_A$ alrededor del 0.5.
+posteriores <- tibble(
+  x = rep(x_vals, 4),
+  densidad = c(
+    dbeta(x_vals, sin_mentiras$alpha, sin_mentiras$beta),
+    dbeta(x_vals, mentira_baja$alpha, mentira_baja$beta),
+    dbeta(x_vals, mentira_media$alpha, mentira_media$beta),
+    dbeta(x_vals, mentira_alta$alpha, mentira_alta$beta)
+  ),
+  caso = factor(rep(c("Sin mentiras", "Mentira baja", "Mentira media", "Mentira alta"),
+                    each = length(x_vals)))
+)
 
-Por otro lado, se decidió usar una distribución binomial como función de verosimilitud ya que se cuenta con una situación en la que cada estudiante encuestado solo tiene dos opciones de respuesta; Si el estudiante ha participado en apuestas deportivas online(éxito) o no ha participado en apuestas deportivas(fracaso). Ádemas el tamaño de la muestra es fijo y esta dado por $n$, la cantidad de alumnos encuestados en la escuela. Y la probabilidad con la que los alumnos encuestados respondan afirmativamenta a la participación en apuestas deportivas online es $\pi_A$. 
+# Gráfico con ggplot2
+ggplot(posteriores, aes(x = x, y = densidad, color = caso)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = c("#ffa600","#97bd3f", "#3fbb8d","#48abb5")) +
+  labs(title = "Muestras Según Niveles de Mentira",
+       x = expression(pi[A]),
+       y = "Densidad",
+       color = "Caso") +
+  theme_minimal(base_size=10)+
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.5),
+        plot.title = element_text(hjust = 0.5))
 
-Con estos elementos se sabe que el posterior se obtiene al realizar la productoría entre el prior con la verosimilitud. Y dado los el prior y la verosimilitud propuesta se obtendrá un posterior beta. De la siguiente forma : 
-
-\[
-\pi_A \sim \text{Beta}(2 + y,2 + n-y)
-\]
-
+```
 
 
 \newpage
+## Método propuesto por Warner
 
 ## 4. Probabilidad de respuesta afirmativa según el método de Warner
 
@@ -168,209 +226,201 @@ Dado que el investigador desconocía cuál de las dos preguntas había sido cont
 \]
 
 Donde:
+
 - $p$ representaba la probabilidad de que el encuestado recibiera la pregunta sobre $A$ (participación en apuestas),
+
 - $\pi_A$ indicaba la proporción real de estudiantes que habían apostado,
+
 - $1 - \pi_A$ correspondía a quienes no lo habían hecho.
 
-Utilizando los valores propuestos en el trabajo:
-- $p = 0.6$,
-- $\pi_A = 0.4$,
-
-se obtuvo:
+Utilizando el valor propuesto de  $\pi_A = 0.4$, proporción de alumnos que apuestan, se obtuvo lo siguiente:
 
 \[
-\lambda_W = 0.6 \cdot 0.4 + 0.4 \cdot (1 - 0.4) = 0.24 + 0.24 = 0.48
+\lambda_W = p \cdot 0.4 + (1 - p) \cdot (1 - 0.4)
+= p \cdot 0.4 + (1 - p) \cdot 0.6
+= 0.4p + 0.6(1 - p)
+= 0.6 + 0.4p - 0.6p
+= 0.6 -0.2p
 \]
 
-Por lo tanto, se concluyó que la probabilidad de que un estudiante respondiera afirmativamente bajo el método de Warner fue de $\lambda_W = 0.48$.
+Por lo tanto, se concluyó que la probabilidad de que un estudiante respondiera afirmativamente bajo el método de Warner fue de $\lambda_W = 0.6 -0.2p$. Es una función linea que depende de la probabilidad de que el  encuestado recibiera la pregunta sobre su participación en apuestas.
 
-Consecuentemente, la probabilidad de que un estudiante respondiera negativamente (es decir, "no") fue:
+```{r lambdaW,echo=FALSE,message=FALSE,warning=FALSE}
+df <- data.frame(p = seq(0, 1, by = 0.01))
+df$lambda_W <- 0.6 - 0.2 * df$p
+
+#| label: fig-lambdaw
+#| fig-cap: "Relación entre la  la probabilidad de que un estudiante responda afirmativamente y la probabilidad p de que se pregunte por A"
+ggplot(df, aes(x = p, y = lambda_W)) +
+  geom_line(color = "#ffa600", size = 1.2) +
+  geom_point(data = df[df$p %in% c(0, 0.5, 1), ], aes(x = p, y = lambda_W), color = "red") +
+  labs(
+    x = "Probabilidad p de que se pregunte por A",
+    y = expression(lambda[W])) +
+  theme_minimal(base_size = 8) +
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
+
+```
+
+Como se observo en la figura @fig-lambdaw se puede ver que a medida que la probabilidad de que el encuestado recibiera la pregunta sobre A la probabilidad de obtener respuestas afirmativas disminuye linealmente.
+
+Consecuentemente, la probabilidad de que un estudiante respondiera negativamente (es decir, "no") fue  $1 - \lambda_W$. Sustituyendo el resultado encontrado en el punto anterior se obtiene : 
 
 \[
-1 - \lambda_W = 1 - 0.48 = 0.52
+1 - \lambda_W = 1 - (0.6 - 0.2p) = 1 - 0.6 + 0.2p = 0.4 + 0.2p
 \]
 
+En contraposición la probabilidad de obtener respuestas negativas esta relacionada linealmente con la probabilidad de que  el encuestado recibiera la pregunta sobre A, de manera positiva. Por lo que al aumentar la probabilidad de el encuestado recibiera la pregunta sobre A, la probabiliad de obtener respuestas negativas aumenta.
 
 
-## 5. Modelo propuesto para la generación de datos (Método de Warner)
-
-A partir del esquema planteado por Warner y de la probabilidad $\lambda_W$ calculada previamente, se propuso un modelo razonable para simular cómo se generaban las respuestas en la muestra, respetando la lógica de la técnica de respuesta aleatorizada.
-
-Cada respuesta observada se consideró como el resultado de dos procesos independientes:
-
-1. **Selección de la pregunta mediante un mecanismo aleatorio**:  
-   A cada encuestado se le asignó una de las dos preguntas posibles:
-   - Con probabilidad $p$, se le preguntaba si alguna vez había participado en apuestas deportivas en línea (pregunta sobre la categoría $A$).
-   - Con probabilidad $1 - p$, se le preguntaba si **nunca** había participado en apuestas deportivas en línea (pregunta sobre la categoría complementaria $A^c$).
-
-2. **Respuesta del encuestado según su condición real**:  
-   Se asumió que los encuestados respondieron de manera sincera (ya que el método protege la privacidad individual), por lo tanto:
-   - Si se les preguntaba por la categoría $A$ y efectivamente pertenecían a ella, respondían "sí".
-   - Si se les preguntaba por la categoría $A^c$ y efectivamente **no** pertenecían a $A$, también respondían "sí".
-   - En los demás casos, respondían "no".
-
-De esta manera, el resultado observado podía modelarse como una variable aleatoria de Bernoulli, con probabilidad de éxito (respuesta afirmativa) igual a:
+## 5. Modelo propuesto para la generación de datos con el Método de Warner
 
 \[
-\lambda_W = p \cdot \pi_A + (1 - p) \cdot (1 - \pi_A)
+Y_i \sim \text{Bernoulli}(\lambda_W), \quad \text{donde} \quad \lambda_W = p \cdot \pi_A + (1 - p) \cdot (1 - \pi_A)
 \]
 
-Para simular los datos generados bajo este modelo, se siguieron los siguientes pasos:
+Este modelo refleja que cada respuesta \( Y_i \) es generada a partir del mecanismo de Warner, que alterna aleatoriamente entre preguntar si el estudiante pertenece a la categoría \( A \) (apostadores) o a su complemento \( A^c \), lo cual permite preservar el anonimato y obtener inferencias válidas sobre \( \pi_A \).
 
-1. Para cada individuo $i$ en la muestra (de tamaño $n = 100$), se generó una variable indicadora $Z_i \sim \text{Bernoulli}(p)$ que definía cuál de las dos preguntas le fue asignada.
-2. Se generó una variable indicadora $Y_i \sim \text{Bernoulli}(\pi_A)$ que definía si el individuo pertenecía o no a la categoría de apostadores.
-3. A partir de $Z_i$ y $Y_i$, se determinó la respuesta observada como:
+Dado que se supone que $\pi_A = 0.4$, entonces el modelo propuesto queda de esta forma:
 
 \[
-R_i =
-\begin{cases}
-1 & \text{si } (Z_i = 1 \land Y_i = 1) \text{ o } (Z_i = 0 \land Y_i = 0) \\
-0 & \text{en caso contrario}
-\end{cases}
+Y_i \sim \text{Bernoulli}(\lambda_W), \quad \text{donde} \quad \lambda_W = 0.6 -0.2p, 0 \leq p \leq 1
 \]
 
-Este modelo reflejó fielmente el mecanismo de respuesta aleatorizada propuesto por Warner, al tiempo que preservó la confidencialidad de las respuestas individuales y permitió realizar inferencias válidas sobre la proporción $\pi_A$ en la población.
+
+```{r pto5, message=FALSE,warning=FALSE}
+n <- 100             # tamaño muestral
+pi_A <- 0.4          # proporción real de apostadores
+p <- 0.7             # probabilidad de que se haga la pregunta directa
+
+lambda_W <- p * pi_A + (1 - p) * (1 - pi_A) # Cálculo de lambda_W
+
+respuestas <- rbinom(n, size = 1, prob = lambda_W) # Simulación Bernoulli(lambda_W)
+
+```
 
 
-## 6. Obtención del posterior exacto bajo un prior uniforme
+## 6. Posterior exacto bajo prior uniforme
 
-Se trabajó con el método de respuesta aleatorizada propuesto por Warner, bajo el cual se deseó estimar la proporción real de estudiantes que apostaban en línea, denotada como \( \pi_a \). Se asumió un prior uniforme sobre \( \pi_a \), es decir:
+Queremos obtener la distribución posterior de \( \pi_A \), que representa la proporción real de estudiantes que apuestan, utilizando el método de Warner.
+
+Partimos de un **prior uniforme** sobre \( \pi_A \), es decir:
 
 \[
-\pi_a \sim \text{Uniform}(0, 1)
+\pi_A \sim \text{Beta}(1,1)
 \]
 
-La probabilidad de que un estudiante respondiera afirmativamente (es decir, "Sí") bajo el mecanismo de Warner fue:
+La densidad de esta distribución es constante en el intervalo \( [0,1] \):
 
 \[
-\lambda_W = p \cdot \pi_a + (1 - p)(1 - \pi_a) = (2p - 1)\pi_a + (1 - p)
+p(\pi_A) = \frac{\pi_A^{\alpha - 1}(1 - \pi_A)^{\beta - 1}}{B(\alpha, \beta)}
 \]
 
-Dado que se observó un total de \( y \) respuestas afirmativas en una muestra de tamaño \( n \), la verosimilitud de los datos fue modelada como una distribución binomial:
+Bajo el mecanismo de Warner, un estudiante recibe con probabilidad \( p \) la pregunta directa (si apuesta), y con probabilidad \( 1-p \), la pregunta contraria (si no apuesta). Entonces, la probabilidad de que un estudiante **responda afirmativamente** es:
+
+\[
+\lambda_W = p \cdot \pi_A + (1 - p)(1 - \pi_A) = (2p - 1)\pi_A + (1 - p)
+\]
+
+Supongamos que observamos \( y \) respuestas afirmativas en una muestra de tamaño \( n \). Con esto se obtiene la siguiente verosimilitud:
 
 \[
 Y \sim \text{Binomial}(n, \lambda_W)
 \]
 
-Por lo tanto, la función de verosimilitud para \( \pi_a \) resultó ser proporcional a:
-
 \[
-\mathcal{L}(\pi_a) \propto \lambda_W^y (1 - \lambda_W)^{n - y}
+p(y | \pi_A) = \binom{n}{y} \lambda_W^y (1 - \lambda_W)^{n - y} \cdot \frac{\pi_A^{\alpha - 1}(1 - \pi_A)^{\beta - 1}}{B(\alpha, \beta)}
 \]
 
-Como se utilizó un prior uniforme, el posterior también resultó proporcional a la verosimilitud:
 
 \[
-p(\pi_a \mid y) \propto \left[(2p - 1)\pi_a + (1 - p)\right]^y \left[1 - (2p - 1)\pi_a - (1 - p)\right]^{n - y}
-\]
-
-La constante de normalización \( Z \) fue definida como:
-
-\[
-Z = \int_0^1 \left[(2p - 1)t + (1 - p)\right]^y \left[1 - (2p - 1)t - (1 - p)\right]^{n - y} dt
-\]
-
-Para resolver esta integral, se aplicó el cambio de variable:
-
-\[
-\lambda = (2p - 1)t + (1 - p) \Rightarrow t = \frac{\lambda - (1 - p)}{2p - 1}
-\]
-
-El diferencial se transformó como:
-
-\[
-dt = \frac{1}{2p - 1} d\lambda
-\]
-
-Cuando \( t = 0 \), se obtuvo \( \lambda = 1 - p \); y cuando \( t = 1 \), se obtuvo \( \lambda = p \). Entonces, los límites de integración cambiaron de \( t \in [0, 1] \) a \( \lambda \in [1 - p, p] \).
-
-La integral de normalización quedó expresada como:
-
-\[
-Z = \int_{1 - p}^p \lambda^y (1 - \lambda)^{n - y} \cdot \frac{1}{2p - 1} d\lambda
+p(\pi_A | y) \propto  \lambda_W^y (1 - \lambda_W)^{n - y} \cdot \pi_A^{\alpha - 1}(1 - \pi_A)^{\beta - 1}
 \]
 
 \[
-Z = \frac{1}{2p - 1} \int_{1 - p}^p \lambda^y (1 - \lambda)^{n - y} d\lambda
+p(\pi_A | y) \propto  \lambda_W^y (1 - \lambda_W)^{n - y} \cdot \pi_A^{1 - 1}(1 - \pi_A)^{1 - 1}
 \]
 
-Reconociendo que la integral corresponde a la función beta incompleta, se llegó a:
+Como los exponentes de \(\pi_A\) y \( (1 - \pi_A) \) son ambos 0, la ecuación se simplifica a:
 
 \[
-Z = \frac{B(p; y + 1, n - y + 1) - B(1 - p; y + 1, n - y + 1)}{1 - 2p}
+p(\pi_A | y) \propto \lambda_W^y (1 - \lambda_W)^{n - y}
 \]
 
-Donde \( B(x; a, b) = \int_0^x t^{a - 1}(1 - t)^{b - 1} dt \) es la función beta incompleta.
-
-Finalmente, la densidad posterior exacta se expresó como:
+Para normalizar esta distribución, necesitamos una constante \(Z\), que depende de la integral sobre el dominio de \(\pi_A\). Es decir, tenemos que calcular la constante de normalización \(Z\), que será una integral:
 
 \[
-p(\pi_a \mid y) = \frac{
-\left[(2p - 1)\pi_a + (1 - p)\right]^y \left[1 - (2p - 1)\pi_a - (1 - p)\right]^{n - y}
-}{
-Z
-}
+p(\pi_A | y) = \frac{N(\pi_A)}{Z}
 \]
+
+donde \(Z\) es la constante de normalización, que puede escribirse como:
+
+\[
+Z = \int_0^1 \lambda_W^y (1 - \lambda_W)^{n - y} \, d\pi_A
+\]
+
+La integral \(Z\) tiene una forma conocida, y se puede resolver usando la función **beta incompleta**. La integral de \(Z\) es la siguiente:
+
+\[
+Z = \frac{B(1 - p; y + 1, n - y + 1) - B(p; y + 1, n - y + 1)}{1 - 2p}
+\]
+
+donde \(B(x; a, b)\) es la **función beta incompleta**, definida como:
+
+\[
+B(x; a, b) = \int_0^x t^{a-1} (1 - t)^{b-1} \, dt
+\]
+
+Finalmente, la distribución posterior se expresa como:
+
+\[
+p(\pi_A | y) = \frac{\lambda_W^y (1 - \lambda_W)^{n - y}}{Z}
+\]
+
+El posterior exacto está dado por esta expresión, con la constante de normalización \(Z\) calculada mediante la función beta incompleta.
+
 
 ## 7. Gráfico del posterior para diferentes valores de \( p \)
 
-Se analizó el comportamiento de la distribución posterior \( p(\pi_a \mid y) \) para distintos valores de \( p \), manteniendo constante la proporción real de apostadores en la población. Se consideró una población de tamaño \( N = 1000 \), de la cual se simuló una única muestra de tamaño \( n = 100 \), suponiendo que la proporción real de apostadores era \( \pi_a = 0.4 \).
+```{r pto7,message=FALSE,warning=FALSE}
 
-Según lo planteado en el ítem 5, se asumió que los datos se generaban siguiendo una distribución binomial de parámetro \( \lambda = (2p - 1)\pi_a + (1 - p) \), lo cual permitió obtener directamente la variable de interés \( Y \sim \text{Binomial}(n = 100, \lambda) \).
+pi <- 0.4  # Proporción real de estudiantes que apuestan
+n <- 100    # Tamaño de la muestra
+p_values <- c(0.1, 0.2, 0.3, 0.4, 0.5)  # Diferentes valores de p
 
-Para ilustrar el efecto del parámetro \( p \), se consideraron los siguientes valores: \( p = 0.6 \), \( 0.7 \), \( 0.8 \) y \( 0.9 \). Para cada uno de ellos se simuló un único valor de \( y \) y se calculó el posterior exacto de \( \pi_a \) sobre una grilla de valores en \( [0,1] \).
-
-El siguiente código presenta la simulación y los gráficos correspondientes:
-
-```{r pto7,echo=FALSE,message=FALSE,warning=FALSE}
-n <- 100
-pi_real <- 0.4
-p_vals <- c(0.6, 0.7, 0.8, 0.9)
-pi_grid <- seq(0, 1, length.out = 1000)
-
-#verosimilitud
-likelihood <- function(pi_a, y, n, p) {
-  lambda <- (2 * p - 1) * pi_a + (1 - p)
-  lambda^y * (1 - lambda)^(n - y)
+calculate_posterior <- function(p, pi, n, y) {
+  
+  lambda <- p * pi + (1 - p) * (1 - pi) # Calcular lambda para el valor dado de p
+  pi_grid <- seq(0.1, 0.9, length.out = 100) # Crear la cuadrícula de valores de pi
+  
+  lambda_grid <- p * pi_grid + (1 - p) * (1 - pi_grid) # Calcular los valores de lambda para cada pi en la cuadrícula
+  
+  # Calcular el posterior para cada valor de pi
+  posterior <- lambda_grid^y * (1 - lambda_grid)^(n - y) / pbeta(1 - p, y + 1, n - y + 1)
+  
+  # Devolver un tibble con los resultados
+  return(tibble(p = rep(p, length(pi_grid)), pi = pi_grid, posterior = posterior))
 }
 
-#posterior
-posterior <- function(pi_a, y, n, p) {
-  unnormalized <- likelihood(pi_a, y, n, p)
-  Z <- integrate(
-    function(t) likelihood(t, y, n, p),
-    lower = 0, upper = 1
-  )$value
-  unnormalized / Z
-}
 
-# Simulación
-posterior_df <- data.frame()
+y_values <- replicate(100, {
+  lambda <- p_values[3] * pi + (1 - p_values[3]) * (1 - pi)  # Usando p = 0.3 como 
+  rbinom(1, n, lambda)  # Muestra binomial
+})
 
-for (p in p_vals) {
-  lambda <- (2 * p - 1) * pi_real + (1 - p)
-  y_obs <- rbinom(1, size = n, prob = lambda)
+# Calcular el posterior para cada valor de p y para cada muestra
+posterior_data <- lapply(p_values, function(p_val) {
+  # Usar la media de y_values para obtener un posterior promedio
+  y_avg <- mean(y_values)
+  calculate_posterior(p_val, pi, n, y_avg)
+}) %>%
+  bind_rows()
 
-  post_vals <- sapply(pi_grid, posterior, y = y_obs, n = n, p = p)
-
-  temp <- data.frame(
-    pi_a = pi_grid,
-    posterior = post_vals,
-    p = paste0("p = ", p, " (y = ", y_obs, ")")
-  )
-
-  posterior_df <- bind_rows(posterior_df, temp)
-}
-
-# Gráfico
-ggplot(posterior_df, aes(x = pi_a, y = posterior, color = p)) +
-  geom_line(size = 1) +
-  scale_color_manual(values = c("#ffa600","#97bd3f", "#3fbb8d","#48abb5"))+
-  labs(
-    title ="Distribución posterior de pi_a para diferentes valores de p",
-    x = expression(pi[a]),
-    y = "Densidad posterior"
-  ) +
+# Graficar los posteriores usando ggplot2
+ggplot(posterior_data, aes(x = pi, y = posterior, color = as.factor(p))) +
+  geom_line(size = 1.2) +
+  scale_color_manual(values = c("red", rep("blue", length(p_values)-1))) +
+  labs(x = "pi_A", y = "Densidad Posterior", title = "Posterior para diferentes valores de p", color = "p") +
   theme_minimal(base_size = 8) +
   theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
 ```
@@ -379,102 +429,91 @@ ggplot(posterior_df, aes(x = pi_a, y = posterior, color = p)) +
 ## punto 8
 
 ```{r pto8,echo=FALSE,message=FALSE,warning=TRUE}
-
-n <- 100       
-p <- 0.6       # Probabilidad de hacer la pregunta sensible
-pi_vals <- c(0.2, 0.3, 0.4, 0.5, 0.6)  # Valores verdaderos simulados de πa
-grid_pi <- seq(0.01, 0.99, length.out = 1000)  # Grid para evaluar posterior
-
-# Función para calcular la verosimilitud y posterior
-posterior_function <- function(y, n, p, grid_pi) {
-  lambda <- p * grid_pi + (1 - p) * (1 - grid_pi)
-  like <- dbinom(y, size = n, prob = lambda)
-  prior <- rep(1, length(grid_pi))  # Prior uniforme
-  unnorm_post <- like * prior
-  norm_post <- unnorm_post / sum(unnorm_post)
-  return(norm_post)
+# Función para calcular el posterior
+calculate_posterior <- function(pi_real, p, n = 100) {
+  lambda <- p * pi_real + (1 - p) * (1 - pi_real)
+  y <- rbinom(1, n, lambda)
+  
+  pi_grid <- seq(0, 1, length.out = 100)
+  lambda_grid <- p * pi_grid + (1 - p) * (1 - pi_grid)
+  
+  posterior <- lambda_grid^y * (1 - lambda_grid)^(n - y)
+  posterior <- posterior / sum(posterior)  # Normalizar
+  
+  tibble(pi_real = pi_real, p = p, pi = pi_grid, posterior = posterior)
 }
 
-#Simulacion
-posterior_df <- data.frame()
+# Valores de pi reales y de p a evaluar
+pi_real_vals <- c(0.2, 0.4, 0.6,0.8)
+p_vals <- c(0.2, 0.4, 0.6,0.8)
 
-for (pi_true in pi_vals) {
-  lambda_true <- p * pi_true + (1 - p) * (1 - pi_true)
-  y_sim <- rbinom(1, size = n, prob = lambda_true)
+# Calcular todas las combinaciones
+posterior_data <- expand.grid(pi_real = pi_real_vals, p = p_vals) %>%
+  rowwise() %>%
+  do(calculate_posterior(.$pi_real, .$p)) %>%
+  ungroup()
 
-  post <- posterior_function(y = y_sim, n = n, p = p, grid_pi = grid_pi)
+# Graficar
+#| label: fig-pto8
+#| fig-cap: "Posterior para distintos valores de πA y p."
 
-  temp_df <- data.frame(
-    pi = grid_pi,
-    posterior = post,
-    pi_true = paste0("πa verdadera = ", pi_true),
-    y = y_sim
+ggplot(posterior_data, aes(x = pi, y = posterior, color = as.factor(p))) +
+  geom_line(size = 1.2) +
+  scale_color_manual(values = c("#ffa600","#97bd3f", "#3fbb8d","#48abb5")) +
+  facet_wrap(~ pi_real, 
+             labeller = label_bquote(pi[A] == .(pi_real)), 
+             ncol = 1) +
+  labs(x = expression(pi[A]),
+       y = "Posterior",
+       color = "p") +
+  theme_minimal(base_size = 8) +
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, size = 0.3),
+    plot.title = element_text(hjust = 0.5, size = 6, face = "bold")
   )
 
-  posterior_df <- rbind(posterior_df, temp_df)
-}
-
-# Gráfico
-ggplot(posterior_df, aes(x = pi, y = posterior, color = pi_true)) +
-  geom_line(size = 1) +
-  labs(
-    title = "Distribuciones posteriores para distintos valores reales de πa",
-    subtitle = paste("n =", n, ", p =", p),
-    x = expression(pi[a]),
-    y = "Densidad posterior",
-    color = expression("Valor verdadero de " * pi[a])
-  ) +
-  theme_minimal(base_size = 8) +
-  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
 
 ```
 
 
 ## punto 9
 
-```{r pto9,echo=FALSE,message=FALSE,warning=TRUE}
-inferencia_beta <- function(n, y, p, prior_alpha, prior_beta, grid_size = 1000) {
-  # n: tamaño de la muestra
-  # y: cantidad de respuestas afirmativas
-  # p: probabilidad de que se haga la pregunta sobre apuestas (Q1)
-  # prior_alpha, prior_beta: parámetros del prior Beta
-  # grid_size: número de puntos en la grilla de πa
+```{r pto9,message=FALSE,warning=TRUE}
+inferencia_beta_grid <- function(y, n, p, alpha = 1, beta = 1, grid_length = 1000) {
   
- 
-  grid_pi_a <- seq(0, 1, length.out = grid_size) # Grilla de valores de πa
+  pi_grid <- seq(0, 1, length.out = grid_length) # Grilla de valores de pi_A
+  lambda <- p * pi_grid + (1 - p) * (1 - pi_grid) # Cálculo de lambda 
   
-  likelihood <- sapply(grid_pi_a, function(pi_a) {
-    
-    p_response <- p * pi_a + (1 - p) * (1 - pi_a)
-    dbinom(y, size = n, prob = p_response)
-    
-  })
+  likelihood <- dbinom(y, size = n, prob = lambda)# Verosimilitud para cada lambda
+  prior <- dbeta(pi_grid, shape1 = alpha, shape2 = beta)# Prior beta
   
-  prior <- dbeta(grid_pi_a, shape1 = prior_alpha, shape2 = prior_beta)
-  posterior_uns <- likelihood * prior
-  posterior <- posterior_uns / sum(posterior_uns)
+  unnorm_posterior <- likelihood * prior # posterior
+  posterior <- unnorm_posterior / sum(unnorm_posterior)# Normalizar
   
-  return(list(posterior = posterior, grid_pi_a = grid_pi_a))
+  return(tibble(pi = pi_grid, posterior = posterior))# Retornar la grilla y el posterior
 }
+```
 
-# Parámetros de la muestra y el prior
-n <- 100        # Número de estudiantes en la muestra
-y <- 40         # Número de respuestas afirmativas
-p <- 0.5        # Probabilidad de que se le pregunte sobre apuestas (Q1)
-prior_alpha <- 2  # Parámetro alpha del prior Beta
-prior_beta <- 2   # Parámetro beta del prior Beta
+Se construyó una función en R que aproximó la distribución posterior de $\pi_A$ utilizando una grilla de valores posibles entre 0 y 1. Para cada valor en la grilla, se calculó la probabilidad $\lambda_W = p \cdot \pi_A + (1 - p) \cdot (1 - \pi_A)$, que representa la probabilidad de responder "sí" bajo el modelo de Warner. Luego, se evaluó la verosimilitud binomial de los datos observados en función de $\lambda_W$, y se multiplicó por la densidad del prior Beta($\alpha$, $\beta$) evaluado en cada punto de la grilla.
 
-resultados <- inferencia_beta(n, y, p, prior_alpha, prior_beta)
+Finalmente, los valores obtenidos se normalizaron dividiendo por la suma total, generando así una aproximación discreta de la densidad posterior. Esta metodología permitió incorporar priors informativos y visualizar cómo se actualizaban las creencias sobre $\pi_A$ luego de observar los datos.
 
-# posterior
-ggplot(data.frame(pi_a = resultados$grid_pi_a, posterior = resultados$posterior), 
-       aes(x = pi_a, y = posterior)) +
-  geom_line() +
-  scale_color_manual(values = c("#ffa600","#97bd3f", "#3fbb8d","#48abb5"))+
-  labs(title = "Posterior de πa", x = "Valor de πa", y = "Densidad Posterior") +
+
+```{r pto9_1,message=FALSE,warning=FALSE}
+posterior_df <- inferencia_beta_grid(y = 42, n = 100, p = 0.3, alpha = 2, beta = 5)
+```
+
+```{r pto9graf,echo=FALSE,message=FALSE,warning=FALSE}
+ggplot(posterior_df, aes(x = pi, y = posterior)) +
+  geom_line(color = "#ffa600", size = 1) +
+  labs(title = "Posterior con prior Beta(2,5)",
+       x = expression(pi[A]),
+       y = "Densidad Posterior") +
   theme_minimal(base_size = 8) +
-  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
-
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, size = 0.3),
+    plot.title = element_text(hjust = 0.5, size = 6, face = "bold")
+  )
 ```
 
 
