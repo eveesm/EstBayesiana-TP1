@@ -253,7 +253,7 @@ df$lambda_W <- 0.6 - 0.2 * df$p
 #| fig-cap: "Relación entre la  la probabilidad de que un estudiante responda afirmativamente y la probabilidad p de que se pregunte por A"
 ggplot(df, aes(x = p, y = lambda_W)) +
   geom_line(color = "#ffa600", size = 1.2) +
-  geom_point(data = df[df$p %in% c(0, 0.5, 1), ], aes(x = p, y = lambda_W), color = "red") +
+  geom_point(data = df[df$p %in% c(0, 0.5, 1), ], aes(x = p, y = lambda_W), color = "#ffa600") +
   labs(
     x = "Probabilidad p de que se pregunte por A",
     y = expression(lambda[W])) +
@@ -419,7 +419,7 @@ posterior_data <- lapply(p_values, function(p_val) {
 # Graficar los posteriores usando ggplot2
 ggplot(posterior_data, aes(x = pi, y = posterior, color = as.factor(p))) +
   geom_line(size = 1.2) +
-  scale_color_manual(values = c("red", rep("blue", length(p_values)-1))) +
+  scale_color_manual(values = c("#ffa600", rep(c("#ffa600","#97bd3f", "#3fbb8d","#48abb5"), length(p_values)-1))) +
   labs(x = "pi_A", y = "Densidad Posterior", title = "Posterior para diferentes valores de p", color = "p") +
   theme_minimal(base_size = 8) +
   theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
@@ -518,11 +518,11 @@ ggplot(posterior_df, aes(x = pi, y = posterior)) +
 
 
 
-## Método de Greenberg: Probabilidad de respuesta y función de inferencia
+## Método de Greenberg
 
 ### Pregunta 10
 
-Para el método de Greenberg, se estimaron las probabilidades de que un estudiante responda “sí” o “no”, en función de la probabilidad de selección de cada pregunta. En este caso, se consideró una probabilidad \( p = 0.5 \) de que se seleccione la pregunta sensible (la que indaga si el estudiante apuesta en línea).
+Para el método de Greenberg, se estimaron las probabilidades de que un estudiante responda “sí” o “no”, en función de la probabilidad de selección de cada pregunta.
 
 La probabilidad total de que un estudiante responda "sí" estuvo dada por:
 
@@ -531,18 +531,35 @@ La probabilidad total de que un estudiante responda "sí" estuvo dada por:
 \]
 
 donde:
-- \( \pi_A \): proporción real de estudiantes que apuestan.
-- \( \pi_B \): proporción de estudiantes que **no apuestan**, usada como control.
 
-Para el caso en que \( \pi_A = \pi_B = \pi \), la expresión se redujo a:
+- \( \pi_A \): proporción real de estudiantes que participaron en apuestas online
+- \( \pi_B \): la proporción de elementos en la población que cumplen años en un mes con 31 días.
+
+Se conoce el valor de  \( \pi_B = \frac{7}{12} \) y además se cpnoce el valor de \(\pi_A\) es la proporción de estudiantes que realmente participaron en apuestas deportivas (en este caso, \( \pi = 0.40 \). Por lo tanto :
 
 \[
-\lambda_G = p \cdot \pi + (1 - p) \cdot (1 - \pi)
+\lambda_G = p \cdot \frac{4}{10} + (1 - p) \cdot (1 - \frac{7}{12})
 \]
+
+\[
+\lambda_G =  \frac{4}{10} \cdot p  + \frac{5}{12} - \frac{5}{12} \cdot p
+\]
+
+\[
+\lambda_G =  \frac{48}{120} \cdot p  + \frac{5}{12} - \frac{50}{120} \cdot p
+\]
+
+Por lo tanto, la **probabilidad de que un estudiante responda "sí"** usando el método de Greenberg es:
+
+\[
+\lambda_G =   \frac{25}{60} - \frac{1}{60} \cdot p
+\]
+
+Estas probabilidades reflejan el diseño del método: como el encuestador no sabe qué pregunta respondió el estudiante, se introduce incertidumbre controlada que protege la privacidad, pero que aún permite inferir la proporción real de estudiantes que apuestan.
 
 Y se implementó de la siguiente manera:
 
-```{r pto10,echo=FALSE,message=FALSE,warning=TRUE}
+```{r pto10,message=FALSE,warning=TRUE}
 # Probabilidad de responder "sí" y "no" en el método de Greenberg
 lambda_G <- function(pi, p) {
   prob_si <- p * pi + (1 - p) * (1 - pi)
@@ -552,34 +569,62 @@ lambda_G <- function(pi, p) {
 
 ```
 
+La **probabilidad de que un estudiante responda "no"** es simplemente el complemento de la anterior:
+
+\[
+1 - \lambda_G = 1 - \left( \frac{25}{60} - \frac{1}{60}p \right) = \frac{35}{60} + \frac{1}{60}p
+\]
+
+Estas probabilidades dependen del valor de \( p \), que representa el grado de privacidad que se le da al encuestado: cuanto menor es \( p \), más protegida está su respuesta.
+
 ## punto 11
 
-```{r pto11,echo=FALSE,message=FALSE,warning=FALSE}
+Se presentó una función en R que resolvió el punto 11 de la consigna. La misma permitía realizar inferencia bayesiana aproximada sobre \( \pi \), la proporción de estudiantes que apuestan, utilizando el método propuesto por Greenberg y una distribución beta previa no necesariamente uniforme.
 
-inferencia_greenberg <- function(y, N, p, a = 1, b = 1, n_sim = 1000) {
+La función recibía como argumentos el número de respuestas afirmativas (\( y \)), el tamaño muestral (\( n \)), el valor de \( p \) correspondiente al mecanismo aleatorio, el valor de \( \pi_B \) (por defecto \( \frac{7}{12} \)), y los parámetros \( a \) y \( b \) de la distribución \( \text{Beta}(a, b) \).
+
+
+```{r pto11,message=FALSE,warning=FALSE}
+# Función para inferencia bayesiana con prior beta y técnica de Greenberg
+infer_posterior_greenberg <- function(y, n, p, pi_B = 7/12, a = 1, b = 1, grid_length = 1000) {
   
-  pi_vals <- rbeta(n_sim, a, b)# Simulaciones desde el prior
-  lambda_vals <- p * pi_vals + (1 - p) * (1 - pi_vals)#calculamos la prob de obtener y respuestas "sí"
   
-  lik <- dbinom(y, N, lambda_vals) # Verosimilitud binomial
-  pesos <- lik / sum(lik)# Ponderamos las pi simuladas por su verosimilitud
+  pi_vals <- seq(0, 1, length.out = grid_length) # Crear grid de valores posibles para pi
+  lambda_vals <- p * pi_vals + (1 - p) * (1 - pi_B) # Calcular la probabilidad
+  likelihood <- dbinom(y, size = n, prob = lambda_vals) # Calcular la verosimilitud
   
-  posterior <- sample(pi_vals, size = n_sim, replace = TRUE, prob = pesos)  # Muestras de la posterior
+  prior <- dbeta(pi_vals, a, b) # Prior Beta(a, b)
   
-  return(posterior)
+  unnormalized_posterior <- likelihood * prior # Posterior no normalizado
+  posterior <- unnormalized_posterior / sum(unnormalized_posterior) # Normalización
+  
+  # Devolver data frame para graficar o analizar
+  return(data.frame(pi = pi_vals, posterior = posterior)) # Devolver
 }
+```
+
+```{r pto11_1,echo=FALSE,message=FALSE,warning=FALSE}
+
+y <- 45         # cantidad de respuestas "sí"
+n <- 100        # tamaño de muestra
+p <- 0.6        # probabilidad de responder la pregunta sensible
+a <- 2          # alpha del prior
+b <- 5          # beta del prior
 
 
-posterior_muestras <- inferencia_greenberg(y = 62, N = 100, p = 0.5, a = 1, b = 1)
+posterior_df <- infer_posterior_greenberg(y, n, p, a = a, b = b)# Calcular posterior
 
-#| label: fig-pto11
-#| fig-cap: ""Distribución posterior de πA"
 
-ggplot(data.frame(pi = posterior_muestras), aes(x = pi)) +
-  geom_density(fill = "#3b78b0", alpha = 0.6) +
-  labs(title = "Distribución posterior de πA", x = expression(pi[A]), y = "Densidad") +
+ggplot(posterior_df, aes(x = pi, y = posterior)) +
+  geom_line(color = "#97bd3f") +
+  labs(title = "Densidad Posterior de π (Greenberg)",
+       x = expression(pi),
+       y = "Densidad Posterior") +
   theme_minimal(base_size = 8) +
-  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, size = 0.3),
+    plot.title = element_text(hjust = 0.5, size = 6, face = "bold")
+  )
 
 ```
 
