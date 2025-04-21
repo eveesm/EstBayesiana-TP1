@@ -2,37 +2,98 @@
 title: "Estadística Bayesiana"
 output: pdf_document
 ---
+\renewcommand{\figurename}{Figura}
+\renewcommand{\tablename}{Tabla} 
 
 ```{r, echo=FALSE, out.width="237px", fig.align='center'}
 knitr::include_graphics("logounr.jpg")
 ```
 
 
-# [Trabajo Práctico:]{.underline} ""
+
+# [Trabajo Práctico:]{.underline} "Modelos Bayesianos para Técnicas de Respuesta Aleatorizada (Warner y Greenberg): Un Estudio Comparativo sobre Apuestas Online en Jóvenes"
 
 [Estudiantes:]{.underline} Marcos Leguizamón y Evelin Sánchez Meza
 
 [Profesores:]{.underline} Ignacio Evangelista y Tomás Capretto
 
-[Fecha:]{.underline}
+[Fecha:]{.underline} 21/04/2025
 
 \pagebreak
 
 ### Introducción.
 
+La creciente prevalencia de las apuestas en línea entre adolescentes constituye un fenómeno social de interés, con potenciales implicaciones para su bienestar psicológico y desarrollo social. La accesibilidad digital y la exposición constante a publicidad facilitan la adopción de estas prácticas, a menudo en un marco regulatorio aún en desarrollo. La investigación sobre la magnitud de esta participación se enfrenta al desafío inherente del sesgo de respuesta, donde la naturaleza sensible del tema puede inducir a los encuestados a ocultar o distorsionar sus experiencias.
+
+Ante esta limitación metodológica, las técnicas de respuesta aleatorizada emergen como herramientas para la obtención de datos más fiables. Estos métodos introducen un componente aleatorio en el proceso de encuesta, desvinculando la respuesta individual de la pregunta sensible y, por ende, incrementando la probabilidad de obtener respuestas honestas. El presente trabajo práctico se inscribe en el paradigma de la **estadística bayesiana** y se enfoca en la aplicación y comparación de dos técnicas de respuesta aleatorizada específicas: el modelo de Warner y la propuesta de Greenberg.
+
+El marco bayesiano proporciona una estructura natural para la incorporación de incertidumbre y conocimiento previo a través de la especificación de distribuciones *prior*. La información muestral, obtenida mediante la aplicación de las técnicas de respuesta aleatorizada, se modela a través de la función de verosimilitud, permitiendo la actualización de las creencias iniciales en la distribución *posterior*. Este enfoque posibilita la obtención de inferencias probabilísticas sobre el parámetro de interés, en este caso, la proporción ($\pi_A$) de estudiantes que participan en apuestas deportivas en línea.
+
+Mediante la implementación de simulaciones computacionales en el entorno R, se evalúa la capacidad de estas técnicas, dentro del marco bayesiano, para proporcionar estimaciones precisas y robustas de la prevalencia de apuestas deportivas online en la población adolescente, incluso en presencia de potenciales sesgos de respuesta que afectarían a las encuestas directas. El objetivo principal consiste en demostrar la utilidad de la integración de las técnicas de respuesta aleatorizada con la inferencia bayesiana como metodología para abordar la investigación de temas sensibles en poblaciones jóvenes.
+
 \pagebreak
 
-### Modelo Bayesiana
+## Modelo Bayesiano
+
+Conforme a lo introducido, el objetivo central es estimar la proporción $\pi_a$ de estudiantes que participan en apuestas deportivas online. Antes de abordar directamente el desafío del sesgo de respuesta mediante técnicas de respuesta aleatorizada, se  establece un modelo bayesiano fundamental. Este modelo inicial se aplicará al escenario de una encuesta realizada mediante pregunta directa, bajo el supuesto de que los estudiantes responden honestamente.
+
+```{r library, echo=FALSE,message=FALSE,warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(stats)
+library(tidyr)
+library(patchwork)
+```
+
+```{r seed, echo=FALSE,message=FALSE,warning=FALSE}
+set.seed(123)
+```
+
+**Función de Verosimilitud**
+
+Se considera una muestra de n estudiantes seleccionados aleatoriamente. A cada estudiante se le pregunta directamente si ha participado en apuestas deportivas online en un período determinado. Sea $Y$ la variable aleatoria que representa el número de estudiantes que responden afirmativamente ('éxito') en la muestra de n.
+
+Bajo el supuesto de que cada estudiante responde de forma independiente y que la probabilidad de que un estudiante haya participado (y responda afirmativamente, asumiendo honestidad) es $\pi_a$ , el número de respuestas afirmativas $Y$ sigue una distribución Binomial. La función de verosimilitud, que expresa la probabilidad de observar $y$ respuestas afirmativas dados n y $\pi_a$, es:
+
+\[
+P(Y = y) = \binom{n}{y} \pi_a^y (1 - \pi_a)^{n - y}, \quad \text{para } y = 0, 1, 2, \dots, n
+\]
+
+Entonces, la distribución muestral es \[
+Y_i \mid \pi_A \sim \text{Binomial}(\pi_A, n)
+\] 
+
+Esta elección se justifica porque:
+
+- El experimento consiste en n ensayos.
+
+- Cada ensayo tiene dos posibles resultados: 'éxito' (responde sí) o 'fracaso' (responde no).
+
+- La probabilidad de 'éxito', $\pi_a$, se asume constante para cada estudiante.
+
+- Los ensayos son independientes entre sí.
+
+**Distribución a Priori**
+
+El parámetro $\pi_a$ representa una proporción, por lo que su valor debe estar contenido en el intervalo [0,1]. La distribución Beta es una elección usual para modelar creencias a priori sobre una proporción. Se propone la siguiente distribución prior para $\pi_a$:
+
+\[
+\pi_A \sim \text{Beta}(\alpha,\beta)
+\]
 
 
-$\pi_A$ : proporción de estudiantes de una escuela que participan de apuestas deportivas en línea
+Específicamente, se seleccionan los valores de los parámetros $\alpha=2$ y $\beta=2$, es decir, \[
+\pi_A \sim \text{Beta}(2,2)
+\]
 
-$n$: cantidad de estudiantes en la encuesta
+Las razones para esta elección son:
 
-$N$: Cantidad de estudiantes en la escuela encuestada
+- Soporte Adecuado: La distribución Beta tiene soporte en [0,1], que coincide con el rango posible de $\pi_a$.
+
+- Reflejo de Creencias Previas: Una Beta(2,2) es simétrica en torno a 0.5, lo que representa una postura inicial de que valores alrededor del 50% son los más probables a priori. Sin embargo, al ser $\alpha$ y $\beta$ mayores que 1, la densidad de probabilidad es menor en los extremos (cerca de 0 y 1) comparado con una Beta(1,1). Esto incorpora la creencia a priori de que es poco probable que ningún estudiante participe ($\pi_a$=0) o que todos lo hagan ($\pi_a=1$), sugiriendo que la prevalencia real se encuentra en la zona intermedia, pero manteniendo incertidumbre.
 
 
-El modelo propuesto es:
+Por lo tanto, el modelo propuesto es:
 
 \[
 Y_i \mid \pi_A \sim \text{Binomial}(\pi_A, n)
@@ -41,6 +102,42 @@ Y_i \mid \pi_A \sim \text{Binomial}(\pi_A, n)
 \[
 \pi_A \sim \text{Beta}(2,2)
 \]
+
+
+**Distribución Posterior**
+
+Aplicando el Teorema de Bayes, la distribución posterior de $\pi_a$, que actualiza las creencias iniciales con la información de los datos, es proporcional al producto del prior y la verosimilitud:
+
+\[
+p(\pi_A \mid y, n) \propto p(\pi_A) \times p(y \mid n, \pi_A)
+\]
+
+\[
+p(\pi_a \mid y, n) \propto \left[ \frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\Gamma(\beta)} \pi_a^{\alpha - 1}(1 - \pi_a)^{\beta - 1} \right] 
+\times \left[ \binom{n}{y} \pi_a^y (1 - \pi_a)^{n - y} \right]
+\]
+
+\[
+p(\pi_a \mid y, n) \propto \pi_a^{\alpha + y - 1} (1 - \pi_a)^{\beta + n - y - 1}
+\]
+
+
+Dada la elección de distribuciones conjugadas, con un prior Beta y una verosimilitud Binomial, la distribución posterior resultante es también una distribución Beta, con parámetros actualizados:
+
+\[
+\pi_A \mid y, n \sim {Beta}(\alpha + y, \beta + n - y)
+\]
+
+
+Sustituyendo los parámetros del prior elegido ($\alpha=2$,$\beta=2$), se obtiene la distribución posterior para este modelo:
+
+
+\[
+\pi_A \mid y, n \sim {Beta}(2 + y, 2 + n - y)
+\]
+
+
+
 
 
 Se decidió utilizar este prior por las siguientes razones. En primer lugar, el parametro $\pi_A$ es un parámetro que tiene un recorrido continuo dentro del rango 0 al 1. Por lo cual la función beta cumple con este requisito. En segundo lugar, se supone que los valores extremos que puede tomar el parámetro $\pi_A$ son muy poco probables.En resumen, se cree que no todos los alumnos de la escuela participaron en apuestas deportivas online y en contraposición tambien se supone que al menos una parte significativa de estudiantes han participado en apuestas online. Por estas razones se le da mayor peso a los posibles valores que puede tomar $\pi_A$ alrededor del 0.5.
@@ -52,3 +149,527 @@ Con estos elementos se sabe que el posterior se obtiene al realizar la productor
 \[
 \pi_A \sim \text{Beta}(2 + y,2 + n-y)
 \]
+
+
+
+\newpage
+
+## 4. Probabilidad de respuesta afirmativa según el método de Warner
+
+Se consideró el método propuesto por Warner, en el cual cada estudiante debía responder una de dos preguntas seleccionadas de manera aleatoria mediante un mecanismo probabilístico:
+
+- Con probabilidad $p$, se le preguntaba si alguna vez había participado en apuestas deportivas en línea (pertenencia al grupo $A$).
+- Con probabilidad $1 - p$, se le preguntaba si **nunca** había participado en apuestas deportivas en línea (pertenencia al complemento $A^c$).
+
+Dado que el investigador desconocía cuál de las dos preguntas había sido contestada, no se podía saber directamente si un "sí" correspondía a pertenecer o no al grupo $A$. No obstante, se dedujo la probabilidad total de obtener una respuesta afirmativa, denotada como $\lambda_W$, a partir de las siguientes componentes:
+
+\[
+\lambda_W = p \cdot \pi_A + (1 - p) \cdot (1 - \pi_A)
+\]
+
+Donde:
+- $p$ representaba la probabilidad de que el encuestado recibiera la pregunta sobre $A$ (participación en apuestas),
+- $\pi_A$ indicaba la proporción real de estudiantes que habían apostado,
+- $1 - \pi_A$ correspondía a quienes no lo habían hecho.
+
+Utilizando los valores propuestos en el trabajo:
+- $p = 0.6$,
+- $\pi_A = 0.4$,
+
+se obtuvo:
+
+\[
+\lambda_W = 0.6 \cdot 0.4 + 0.4 \cdot (1 - 0.4) = 0.24 + 0.24 = 0.48
+\]
+
+Por lo tanto, se concluyó que la probabilidad de que un estudiante respondiera afirmativamente bajo el método de Warner fue de $\lambda_W = 0.48$.
+
+Consecuentemente, la probabilidad de que un estudiante respondiera negativamente (es decir, "no") fue:
+
+\[
+1 - \lambda_W = 1 - 0.48 = 0.52
+\]
+
+
+
+## 5. Modelo propuesto para la generación de datos (Método de Warner)
+
+A partir del esquema planteado por Warner y de la probabilidad $\lambda_W$ calculada previamente, se propuso un modelo razonable para simular cómo se generaban las respuestas en la muestra, respetando la lógica de la técnica de respuesta aleatorizada.
+
+Cada respuesta observada se consideró como el resultado de dos procesos independientes:
+
+1. **Selección de la pregunta mediante un mecanismo aleatorio**:  
+   A cada encuestado se le asignó una de las dos preguntas posibles:
+   - Con probabilidad $p$, se le preguntaba si alguna vez había participado en apuestas deportivas en línea (pregunta sobre la categoría $A$).
+   - Con probabilidad $1 - p$, se le preguntaba si **nunca** había participado en apuestas deportivas en línea (pregunta sobre la categoría complementaria $A^c$).
+
+2. **Respuesta del encuestado según su condición real**:  
+   Se asumió que los encuestados respondieron de manera sincera (ya que el método protege la privacidad individual), por lo tanto:
+   - Si se les preguntaba por la categoría $A$ y efectivamente pertenecían a ella, respondían "sí".
+   - Si se les preguntaba por la categoría $A^c$ y efectivamente **no** pertenecían a $A$, también respondían "sí".
+   - En los demás casos, respondían "no".
+
+De esta manera, el resultado observado podía modelarse como una variable aleatoria de Bernoulli, con probabilidad de éxito (respuesta afirmativa) igual a:
+
+\[
+\lambda_W = p \cdot \pi_A + (1 - p) \cdot (1 - \pi_A)
+\]
+
+Para simular los datos generados bajo este modelo, se siguieron los siguientes pasos:
+
+1. Para cada individuo $i$ en la muestra (de tamaño $n = 100$), se generó una variable indicadora $Z_i \sim \text{Bernoulli}(p)$ que definía cuál de las dos preguntas le fue asignada.
+2. Se generó una variable indicadora $Y_i \sim \text{Bernoulli}(\pi_A)$ que definía si el individuo pertenecía o no a la categoría de apostadores.
+3. A partir de $Z_i$ y $Y_i$, se determinó la respuesta observada como:
+
+\[
+R_i =
+\begin{cases}
+1 & \text{si } (Z_i = 1 \land Y_i = 1) \text{ o } (Z_i = 0 \land Y_i = 0) \\
+0 & \text{en caso contrario}
+\end{cases}
+\]
+
+Este modelo reflejó fielmente el mecanismo de respuesta aleatorizada propuesto por Warner, al tiempo que preservó la confidencialidad de las respuestas individuales y permitió realizar inferencias válidas sobre la proporción $\pi_A$ en la población.
+
+
+## 6. Obtención del posterior exacto bajo un prior uniforme
+
+Se trabajó con el método de respuesta aleatorizada propuesto por Warner, bajo el cual se deseó estimar la proporción real de estudiantes que apostaban en línea, denotada como \( \pi_a \). Se asumió un prior uniforme sobre \( \pi_a \), es decir:
+
+\[
+\pi_a \sim \text{Uniform}(0, 1)
+\]
+
+La probabilidad de que un estudiante respondiera afirmativamente (es decir, "Sí") bajo el mecanismo de Warner fue:
+
+\[
+\lambda_W = p \cdot \pi_a + (1 - p)(1 - \pi_a) = (2p - 1)\pi_a + (1 - p)
+\]
+
+Dado que se observó un total de \( y \) respuestas afirmativas en una muestra de tamaño \( n \), la verosimilitud de los datos fue modelada como una distribución binomial:
+
+\[
+Y \sim \text{Binomial}(n, \lambda_W)
+\]
+
+Por lo tanto, la función de verosimilitud para \( \pi_a \) resultó ser proporcional a:
+
+\[
+\mathcal{L}(\pi_a) \propto \lambda_W^y (1 - \lambda_W)^{n - y}
+\]
+
+Como se utilizó un prior uniforme, el posterior también resultó proporcional a la verosimilitud:
+
+\[
+p(\pi_a \mid y) \propto \left[(2p - 1)\pi_a + (1 - p)\right]^y \left[1 - (2p - 1)\pi_a - (1 - p)\right]^{n - y}
+\]
+
+La constante de normalización \( Z \) fue definida como:
+
+\[
+Z = \int_0^1 \left[(2p - 1)t + (1 - p)\right]^y \left[1 - (2p - 1)t - (1 - p)\right]^{n - y} dt
+\]
+
+Para resolver esta integral, se aplicó el cambio de variable:
+
+\[
+\lambda = (2p - 1)t + (1 - p) \Rightarrow t = \frac{\lambda - (1 - p)}{2p - 1}
+\]
+
+El diferencial se transformó como:
+
+\[
+dt = \frac{1}{2p - 1} d\lambda
+\]
+
+Cuando \( t = 0 \), se obtuvo \( \lambda = 1 - p \); y cuando \( t = 1 \), se obtuvo \( \lambda = p \). Entonces, los límites de integración cambiaron de \( t \in [0, 1] \) a \( \lambda \in [1 - p, p] \).
+
+La integral de normalización quedó expresada como:
+
+\[
+Z = \int_{1 - p}^p \lambda^y (1 - \lambda)^{n - y} \cdot \frac{1}{2p - 1} d\lambda
+\]
+
+\[
+Z = \frac{1}{2p - 1} \int_{1 - p}^p \lambda^y (1 - \lambda)^{n - y} d\lambda
+\]
+
+Reconociendo que la integral corresponde a la función beta incompleta, se llegó a:
+
+\[
+Z = \frac{B(p; y + 1, n - y + 1) - B(1 - p; y + 1, n - y + 1)}{1 - 2p}
+\]
+
+Donde \( B(x; a, b) = \int_0^x t^{a - 1}(1 - t)^{b - 1} dt \) es la función beta incompleta.
+
+Finalmente, la densidad posterior exacta se expresó como:
+
+\[
+p(\pi_a \mid y) = \frac{
+\left[(2p - 1)\pi_a + (1 - p)\right]^y \left[1 - (2p - 1)\pi_a - (1 - p)\right]^{n - y}
+}{
+Z
+}
+\]
+
+## 7. Gráfico del posterior para diferentes valores de \( p \)
+
+Se analizó el comportamiento de la distribución posterior \( p(\pi_a \mid y) \) para distintos valores de \( p \), manteniendo constante la proporción real de apostadores en la población. Se consideró una población de tamaño \( N = 1000 \), de la cual se simuló una única muestra de tamaño \( n = 100 \), suponiendo que la proporción real de apostadores era \( \pi_a = 0.4 \).
+
+Según lo planteado en el ítem 5, se asumió que los datos se generaban siguiendo una distribución binomial de parámetro \( \lambda = (2p - 1)\pi_a + (1 - p) \), lo cual permitió obtener directamente la variable de interés \( Y \sim \text{Binomial}(n = 100, \lambda) \).
+
+Para ilustrar el efecto del parámetro \( p \), se consideraron los siguientes valores: \( p = 0.6 \), \( 0.7 \), \( 0.8 \) y \( 0.9 \). Para cada uno de ellos se simuló un único valor de \( y \) y se calculó el posterior exacto de \( \pi_a \) sobre una grilla de valores en \( [0,1] \).
+
+El siguiente código presenta la simulación y los gráficos correspondientes:
+
+```{r pto7,echo=FALSE,message=FALSE,warning=FALSE}
+n <- 100
+pi_real <- 0.4
+p_vals <- c(0.6, 0.7, 0.8, 0.9)
+pi_grid <- seq(0, 1, length.out = 1000)
+
+#verosimilitud
+likelihood <- function(pi_a, y, n, p) {
+  lambda <- (2 * p - 1) * pi_a + (1 - p)
+  lambda^y * (1 - lambda)^(n - y)
+}
+
+#posterior
+posterior <- function(pi_a, y, n, p) {
+  unnormalized <- likelihood(pi_a, y, n, p)
+  Z <- integrate(
+    function(t) likelihood(t, y, n, p),
+    lower = 0, upper = 1
+  )$value
+  unnormalized / Z
+}
+
+# Simulación
+posterior_df <- data.frame()
+
+for (p in p_vals) {
+  lambda <- (2 * p - 1) * pi_real + (1 - p)
+  y_obs <- rbinom(1, size = n, prob = lambda)
+
+  post_vals <- sapply(pi_grid, posterior, y = y_obs, n = n, p = p)
+
+  temp <- data.frame(
+    pi_a = pi_grid,
+    posterior = post_vals,
+    p = paste0("p = ", p, " (y = ", y_obs, ")")
+  )
+
+  posterior_df <- bind_rows(posterior_df, temp)
+}
+
+# Gráfico
+ggplot(posterior_df, aes(x = pi_a, y = posterior, color = p)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = c("#ffa600","#97bd3f", "#3fbb8d","#48abb5"))+
+  labs(
+    title ="Distribución posterior de pi_a para diferentes valores de p",
+    x = expression(pi[a]),
+    y = "Densidad posterior"
+  ) +
+  theme_minimal(base_size = 8) +
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
+```
+
+
+## punto 8
+
+```{r pto8,echo=FALSE,message=FALSE,warning=TRUE}
+
+n <- 100       
+p <- 0.6       # Probabilidad de hacer la pregunta sensible
+pi_vals <- c(0.2, 0.3, 0.4, 0.5, 0.6)  # Valores verdaderos simulados de πa
+grid_pi <- seq(0.01, 0.99, length.out = 1000)  # Grid para evaluar posterior
+
+# Función para calcular la verosimilitud y posterior
+posterior_function <- function(y, n, p, grid_pi) {
+  lambda <- p * grid_pi + (1 - p) * (1 - grid_pi)
+  like <- dbinom(y, size = n, prob = lambda)
+  prior <- rep(1, length(grid_pi))  # Prior uniforme
+  unnorm_post <- like * prior
+  norm_post <- unnorm_post / sum(unnorm_post)
+  return(norm_post)
+}
+
+#Simulacion
+posterior_df <- data.frame()
+
+for (pi_true in pi_vals) {
+  lambda_true <- p * pi_true + (1 - p) * (1 - pi_true)
+  y_sim <- rbinom(1, size = n, prob = lambda_true)
+
+  post <- posterior_function(y = y_sim, n = n, p = p, grid_pi = grid_pi)
+
+  temp_df <- data.frame(
+    pi = grid_pi,
+    posterior = post,
+    pi_true = paste0("πa verdadera = ", pi_true),
+    y = y_sim
+  )
+
+  posterior_df <- rbind(posterior_df, temp_df)
+}
+
+# Gráfico
+ggplot(posterior_df, aes(x = pi, y = posterior, color = pi_true)) +
+  geom_line(size = 1) +
+  labs(
+    title = "Distribuciones posteriores para distintos valores reales de πa",
+    subtitle = paste("n =", n, ", p =", p),
+    x = expression(pi[a]),
+    y = "Densidad posterior",
+    color = expression("Valor verdadero de " * pi[a])
+  ) +
+  theme_minimal(base_size = 8) +
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
+
+```
+
+
+## punto 9
+
+```{r pto9,echo=FALSE,message=FALSE,warning=TRUE}
+inferencia_beta <- function(n, y, p, prior_alpha, prior_beta, grid_size = 1000) {
+  # n: tamaño de la muestra
+  # y: cantidad de respuestas afirmativas
+  # p: probabilidad de que se haga la pregunta sobre apuestas (Q1)
+  # prior_alpha, prior_beta: parámetros del prior Beta
+  # grid_size: número de puntos en la grilla de πa
+  
+ 
+  grid_pi_a <- seq(0, 1, length.out = grid_size) # Grilla de valores de πa
+  
+  likelihood <- sapply(grid_pi_a, function(pi_a) {
+    
+    p_response <- p * pi_a + (1 - p) * (1 - pi_a)
+    dbinom(y, size = n, prob = p_response)
+    
+  })
+  
+  prior <- dbeta(grid_pi_a, shape1 = prior_alpha, shape2 = prior_beta)
+  posterior_uns <- likelihood * prior
+  posterior <- posterior_uns / sum(posterior_uns)
+  
+  return(list(posterior = posterior, grid_pi_a = grid_pi_a))
+}
+
+# Parámetros de la muestra y el prior
+n <- 100        # Número de estudiantes en la muestra
+y <- 40         # Número de respuestas afirmativas
+p <- 0.5        # Probabilidad de que se le pregunte sobre apuestas (Q1)
+prior_alpha <- 2  # Parámetro alpha del prior Beta
+prior_beta <- 2   # Parámetro beta del prior Beta
+
+resultados <- inferencia_beta(n, y, p, prior_alpha, prior_beta)
+
+# posterior
+ggplot(data.frame(pi_a = resultados$grid_pi_a, posterior = resultados$posterior), 
+       aes(x = pi_a, y = posterior)) +
+  geom_line() +
+  scale_color_manual(values = c("#ffa600","#97bd3f", "#3fbb8d","#48abb5"))+
+  labs(title = "Posterior de πa", x = "Valor de πa", y = "Densidad Posterior") +
+  theme_minimal(base_size = 8) +
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
+
+```
+
+
+
+## Método de Greenberg: Probabilidad de respuesta y función de inferencia
+
+### Pregunta 10
+
+Para el método de Greenberg, se estimaron las probabilidades de que un estudiante responda “sí” o “no”, en función de la probabilidad de selección de cada pregunta. En este caso, se consideró una probabilidad \( p = 0.5 \) de que se seleccione la pregunta sensible (la que indaga si el estudiante apuesta en línea).
+
+La probabilidad total de que un estudiante responda "sí" estuvo dada por:
+
+\[
+\lambda_G = p \cdot \pi_A + (1 - p) \cdot (1 - \pi_B)
+\]
+
+donde:
+- \( \pi_A \): proporción real de estudiantes que apuestan.
+- \( \pi_B \): proporción de estudiantes que **no apuestan**, usada como control.
+
+Para el caso en que \( \pi_A = \pi_B = \pi \), la expresión se redujo a:
+
+\[
+\lambda_G = p \cdot \pi + (1 - p) \cdot (1 - \pi)
+\]
+
+Y se implementó de la siguiente manera:
+
+```{r pto10,echo=FALSE,message=FALSE,warning=TRUE}
+# Probabilidad de responder "sí" y "no" en el método de Greenberg
+lambda_G <- function(pi, p) {
+  prob_si <- p * pi + (1 - p) * (1 - pi)
+  prob_no <- 1 - prob_si
+  return(list(prob_si = prob_si, prob_no = prob_no))
+}
+
+```
+
+## punto 11
+
+```{r pto11,echo=FALSE,message=FALSE,warning=FALSE}
+
+inferencia_greenberg <- function(y, N, p, a = 1, b = 1, n_sim = 1000) {
+  
+  pi_vals <- rbeta(n_sim, a, b)# Simulaciones desde el prior
+  lambda_vals <- p * pi_vals + (1 - p) * (1 - pi_vals)#calculamos la prob de obtener y respuestas "sí"
+  
+  lik <- dbinom(y, N, lambda_vals) # Verosimilitud binomial
+  pesos <- lik / sum(lik)# Ponderamos las pi simuladas por su verosimilitud
+  
+  posterior <- sample(pi_vals, size = n_sim, replace = TRUE, prob = pesos)  # Muestras de la posterior
+  
+  return(posterior)
+}
+
+
+posterior_muestras <- inferencia_greenberg(y = 62, N = 100, p = 0.5, a = 1, b = 1)
+
+#| label: fig-pto11
+#| fig-cap: ""Distribución posterior de πA"
+
+ggplot(data.frame(pi = posterior_muestras), aes(x = pi)) +
+  geom_density(fill = "#3b78b0", alpha = 0.6) +
+  labs(title = "Distribución posterior de πA", x = expression(pi[A]), y = "Densidad") +
+  theme_minimal(base_size = 8) +
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
+
+```
+
+
+\newpage
+## 12. Comparación de escenarios: Sin mentira, Mentira (bajo, medio, alto), Warner y Greenberg
+
+En este punto, se compararon los métodos de respuesta aleatorizada de Warner y Greenberg bajo cuatro escenarios distintos, definidos por el nivel de veracidad de los encuestados: no mienten, mentira baja, mentira media y mentira alta. Para cada combinación de método y nivel de mentira, se simuló una única muestra de tamaño fijo con el fin de obtener una estimación puntual de la proporción real de estudiantes que participan en apuestas en línea. Esta comparación permitió observar cómo varía la estimación según el método utilizado y el grado de sinceridad de las respuestas.
+
+
+```{r pto12, echo=FALSE,message=FALSE,warning=FALSE}
+n <- 100        # tamaño muestral
+p_true <- 0.4   # proporción real de estudiantes que apuestan
+p <- 0.3        # Warner
+q <- 0.1        # Greenberg
+pi <- 0.6       # Greenberg
+
+# Función de simulación
+simular_est <- function(metodo, mu) {
+  if (metodo == "warner") {
+    p_observado <- if (mu == 0) {
+      p * p_true + (1 - p) * (1 - p_true)
+    } else {
+      p * (mu * p_true + (1 - mu) * (1 - p_true)) +
+        (1 - p) * (mu * (1 - p_true) + (1 - mu) * p_true)
+    }
+    y <- rbinom(n, 1, p_observado)
+    phat <- (mean(y) - (1 - p)) / (2 * p - 1)
+  } else if (metodo == "greenberg") {
+    p_observado <- if (mu == 0) {
+      pi * p_true + (1 - pi) * q
+    } else {
+      pi * (mu * p_true + (1 - mu) * (1 - p_true)) + (1 - pi) * q
+    }
+    y <- rbinom(n, 1, p_observado)
+    phat <- (mean(y) - (1 - pi) * q) / pi
+  }
+  return(phat)
+}
+
+# Niveles de mentira
+niveles <- c("Mentira baja" = 0.25, "Mentira media" = 0.5, "Mentira alta" = 0.75)
+
+#simulaciones
+nsim <- 1000
+resultados_sim <- data.frame()
+
+for (nivel in names(niveles)) {
+  mu <- niveles[[nivel]]
+  for (i in 1:nsim) {
+    resultados_sim <- rbind(resultados_sim,
+                            data.frame(Metodo = "Warner", Proporcion = simular_est("warner", mu), Mentira = nivel),
+                            data.frame(Metodo = "Greenberg", Proporcion = simular_est("greenberg", mu), Mentira = nivel))
+  }
+}
+
+# Gráfico de densidad
+#| label: fig-pto12
+#| fig-cap: "Distribución de las proporciones estimadas según nivel de mentira. Se comparan los métodos de Warner y Greenberg."
+
+ggplot(resultados_sim, aes(x = Proporcion, fill = Metodo)) +
+  geom_density(alpha = 0.6) +
+  facet_wrap(~ Mentira, nrow = 2) +
+  geom_vline(xintercept = p_true, linetype = "dashed", color = "black") +
+  labs(x = "Proporción estimada", y = "Densidad" ) +
+  scale_fill_manual(values = c("#ffa600","#97bd3f", "#3fbb8d","#48abb5")) +
+  theme_minimal(base_size = 8) +
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
+
+```
+
+
+\newpage
+### 13. Simulaciones repetidas (1000 repeticiones)
+
+ Para evaluar la estabilidad y precisión de los métodos utilizados, se repitió la simulación un total de 1000 veces. Este enfoque permitió analizar el sesgo y la varianza de cada método bajo diferentes escenarios, proporcionando una mejor comprensión de su desempeño en estimaciones repetidas. Los resultados obtenidos permitieron comparar de manera más robusta las inferencias generadas por cada uno de los métodos aplicados.
+
+
+```{r pto13, echo=FALSE,message=FALSE,warning=FALSE}
+sim_1000 <- function(metodo, mu) {
+  res <- numeric(1000)
+  for (i in 1:1000) {
+    if (metodo == "warner") {
+      y <- rbinom(n, 1, p * ((1 - mu) * p_true + mu * (1 - p_true)) + (1 - p) * ((1 - mu) * (1 - p_true) + mu * p_true))
+      phat <- (mean(y) - (1 - p)) / (2 * p - 1)
+      res[i] <- phat
+    } else if (metodo == "greenberg") {
+      prob_mentira <- (1 - mu) * p_true + mu * (1 - p_true)
+      y <- rbinom(n, 1, pi * prob_mentira + (1 - pi) * q)
+      phat <- (mean(y) - (1 - pi) * q) / pi
+      res[i] <- phat
+    }
+  }
+  return(res)
+}
+
+# Simulaciones
+mu_vals <- c(0.25, 0.5, 0.75)
+nombres_mu <- c( "Mentira baja", "Mentira media", "Mentira alta")
+
+resultados <- data.frame()
+
+for (i in seq_along(mu_vals)) {
+  for (metodo in c("warner", "greenberg")) {
+    res <- sim_1000(metodo, mu_vals[i])
+    resultados <- rbind(resultados, data.frame(
+      Metodo = metodo,
+      Mentira = nombres_mu[i],
+      Proporcion = res
+    ))
+  }
+}
+
+```
+
+```{r graf_pto13, echo=FALSE,message=FALSE,warning=FALSE}
+#| label: fig-comparacion-metodos
+#| fig-cap: "Distribución de las proporciones estimadas según nivel de mentira. Se comparan los métodos de Warner y Greenberg."
+
+ggplot(resultados, aes(x = Proporcion, fill = Metodo)) +
+  geom_density(alpha = 0.6) +
+  geom_vline(xintercept = p_true, linetype = "dashed", color = "black") +
+  facet_wrap(~ Mentira, ncol = 2) +
+  scale_fill_manual(values = c("warner" = "#ffa600", "greenberg" = "#97bd3f")) +
+  labs(x = "Proporción estimada",y = "Densidad")+
+  theme_minimal(base_size = 8) +
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 0.3), plot.title = element_text(hjust = 0.5, size = 6, face = "bold"))
+
+
+```
+
+
